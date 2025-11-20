@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>EDM Song Builder · Broken Chord Arp Lab</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1b2140 0, #050715 55%, #02030a 100%);
+      color: #f7f7ff;
+      margin: 0;
+      padding: 24px 12px;
+      display: flex;
+      justify-content: center;
+    }
+    .app {
+      width: 100%;
+      max-width: 1100px;
+      background: rgba(4,7,24,0.95);
+      border-radius: 24px;
+      padding: 20px 22px 26px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: 1.8rem;
+      letter-spacing: 0.02em;
+    }
+    .subtitle {
+      margin: 0 0 12px;
+      color: #b5b8ff;
+      font-size: 0.9rem;
+    }
+    .chip-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .chip {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      background: rgba(127,93,255,0.18);
+      color: #e3e4ff;
+      border: 1px solid rgba(167,139,250,0.5);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    h2 {
+      margin: 16px 0 10px;
+      font-size: 1.05rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #d4d4ff;
+    }
+    .section {
+      margin-bottom: 12px;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.8rem;
+    }
+    select, input[type="number"] {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(3,5,19,0.96);
+      color: #f7f7ff;
+      outline: none;
+      font-size: 0.86rem;
+    }
+    select:focus, input[type="number"]:focus {
+      border-color: #818cf8;
+      box-shadow: 0 0 0 1px rgba(129,140,248,0.5);
+    }
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 9px 16px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.06s ease, box-shadow 0.06s ease, background 0.1s ease;
+    }
+    button.primary {
+      background: linear-gradient(135deg, #7f5dff, #ff5dc8);
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.6);
+    }
+    button.secondary {
+      background: rgba(9,12,32,0.95);
+      color: #f3f4ff;
+      border: 1px solid rgba(255,255,255,0.16);
+    }
+    button.ghost {
+      background: transparent;
+      color: #cbd5ff;
+      border: 1px dashed rgba(148,163,255,0.7);
+      font-size: 0.8rem;
+      padding: 6px 10px;
+    }
+    button.danger {
+      background: rgba(239,68,68,0.1);
+      color: #fecaca;
+      border: 1px solid rgba(239,68,68,0.6);
+      font-size: 0.8rem;
+      padding: 5px 10px;
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 26px rgba(0,0,0,0.55);
+    }
+    button:active {
+      transform: translateY(0);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .song-builder {
+      margin-top: 8px;
+    }
+    .section-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .stack {
+      border-radius: 16px;
+      background: rgba(8,11,35,0.95);
+      border: 1px solid rgba(255,255,255,0.06);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .block {
+      border-radius: 14px;
+      background: radial-gradient(circle at top, rgba(79,70,229,0.28), rgba(15,23,42,0.95));
+      border: 1px solid rgba(129,140,248,0.65);
+      padding: 8px 10px;
+      display: grid;
+      grid-template-columns: 1.5fr 1.2fr 1.2fr auto;
+      gap: 8px;
+      align-items: center;
+      font-size: 0.8rem;
+    }
+    .block-header {
+      font-weight: 600;
+    }
+    .block-meta {
+      font-size: 0.75rem;
+      color: #c7d2fe;
+    }
+    .output {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(4,7,24,0.98);
+      border: 1px solid rgba(148,163,255,0.35);
+      max-height: 280px;
+      overflow: auto;
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-size: 0.8rem;
+      white-space: pre;
+    }
+    .playback-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .hint {
+      margin-top: 6px;
+      font-size: 0.78rem;
+      color: #9ca3ff;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <h1>EDM Song Builder · Broken Chord Arp Lab</h1>
+  <p class="subtitle">
+    Stack sections like blocks (Intro → Verse → Pre → Chorus → Bridge → Outro), generate catchy EDM-style broken chord melodies, and play them right here.
+  </p>
+  <div class="chip-row">
+    <div class="chip">EDM pop harmony</div>
+    <div class="chip">Broken chord arpeggiations</div>
+    <div class="chip">Linear & cyclical progressions</div>
+    <div class="chip">MIDI & in-browser synth</div>
+  </div>
+
+  <div class="section">
+    <h2>Global Settings</h2>
+    <div class="controls">
+      <label>
+        Key
+        <select id="keySelect">
+          <option>C</option><option>C#</option><option>D</option><option>D#</option>
+          <option>E</option><option>F</option><option>F#</option><option>G</option>
+          <option>G#</option><option>A</option><option>A#</option><option>B</option>
+        </select>
+      </label>
+      <label>
+        Mode
+        <select id="modeSelect">
+          <option value="minor">Minor (EDM / emotional)</option>
+          <option value="major">Major (uplifting pop)</option>
+        </select>
+      </label>
+      <label>
+        BPM
+        <input id="bpmInput" type="number" value="128" min="60" max="200">
+      </label>
+      <label>
+        Base Melody Octave
+        <input id="octaveInput" type="number" value="4" min="1" max="7">
+      </label>
+    </div>
+    <p class="hint">Tip: Minor keys with BPM 124–132 will feel very “TikTok / festival EDM”.</p>
+  </div>
+
+  <div class="section song-builder">
+    <h2>Song Structure · Stack Sections Like Blocks</h2>
+    <div class="section-buttons">
+      <button class="ghost" data-section-type="intro">+ Intro</button>
+      <button class="ghost" data-section-type="verse">+ Verse</button>
+      <button class="ghost" data-section-type="prechorus">+ Pre-Chorus</button>
+      <button class="ghost" data-section-type="chorus">+ Chorus</button>
+      <button class="ghost" data-section-type="bridge">+ Bridge</button>
+      <button class="ghost" data-section-type="outro">+ Outro</button>
+    </div>
+    <div class="stack" id="stackContainer">
+      <!-- Section blocks will appear here -->
+    </div>
+    <p class="hint">
+      The stack flows top → bottom. Start with Intro, then build downwards. You can remove and re-add sections any time.
+    </p>
+  </div>
+
+  <div class="section">
+    <h2>Generate & Listen</h2>
+    <div class="buttons">
+      <button class="primary" id="generateBtn">🎲 Generate Song Melody</button>
+      <button class="secondary" id="downloadMidiBtn">💾 Download MIDI</button>
+    </div>
+    <div class="playback-row">
+      <button class="secondary" id="playBtn">▶️ Play Song</button>
+      <button class="secondary" id="stopBtn">⏹ Stop</button>
+    </div>
+    <p class="hint">
+      Workflow: Build your stack → Generate → Play → If you like it, Download MIDI and drag it into Ableton’s MIDI track.
+    </p>
+    <div id="output" class="output"></div>
+  </div>
+</div>
+
+<script>
+  // ---------- THEORY PRIMERS --------------------------------------------------
+  const NOTE_TO_PC = {
+    "C":0,"C#":1,"D":2,"D#":3,"E":4,"F":5,
+    "F#":6,"G":7,"G#":8,"A":9,"A#":10,"B":11
+  };
+  const PC_TO_NOTE = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+  function buildScale(rootPc, mode) {
+    // Natural minor / major for EDM base
+    const MAJOR = [0,2,4,5,7,9,11];
+    const MINOR = [0,2,3,5,7,8,10];
+    const pattern = mode === "major" ? MAJOR : MINOR;
+    return pattern.map(x => (rootPc + x) % 12);
+  }
+
+  function pcToMidi(pc, octave) {
+    return 12 * (octave + 1) + pc; // MIDI: C-1 = 0
+  }
+
+  function midiToName(m) {
+    const pc = m % 12;
+    const octave = Math.floor(m / 12) - 1;
+    return PC_TO_NOTE[pc] + octave;
+  }
+
+  function buildTriad(scalePcs, degree, baseOctave, inversionBias = 0.3) {
+    // degree: 1–7, triad within scale
+    const idx = (degree - 1) % 7;
+    const pcs = [
+      scalePcs[idx],
+      scalePcs[(idx + 2) % 7],
+      scalePcs[(idx + 4) % 7]
+    ];
+    // start as closed root-position triad, then optionally invert
+    let notes = pcs.map(pc => pcToMidi(pc, baseOctave));
+    // basic ascending voicing by adding octaves as needed
+    for (let i = 1; i < notes.length; i++) {
+      while (notes[i] <= notes[i-1]) notes[i] += 12;
+    }
+    // random inversion for variety
+    const r = Math.random();
+    if (r < inversionBias) {
+      // first inversion: move root up
+      notes[0] += 12;
+    } else if (r < 2 * inversionBias) {
+      // second inversion: move root & third up
+      notes[0] += 12;
+      notes[1] += 12;
+    }
+    // re-sort to ascending
+    notes.sort((a,b) => a - b);
+    return notes;
+  }
+
+  // Build arp pattern with simple "hook logic": octave jumps + chord tones
+  function buildBrokenChordPattern(triad, sectionType) {
+    const [r, t, f] = triad;
+    const rHi = r + 12;
+    const tHi = t + 12;
+    const fHi = f + 12;
+
+    // Different flavors depending on section (slightly different “DNA”)
+    if (sectionType === "chorus") {
+      // high-energy, more top-heavy pattern
+      return [
+        rHi, fHi, tHi, fHi,
+        rHi, tHi, fHi, tHi
+      ];
+    } else if (sectionType === "prechorus") {
+      // climbing feel
+      return [
+        r, t, f, tHi,
+        f, tHi, rHi, fHi
+      ];
+    } else if (sectionType === "bridge") {
+      // more linear, less jumpy
+      return [
+        r, t, f, t,
+        r, t, f, t
+      ];
+    } else {
+      // default intro / verse / outro
+      return [
+        r, f, tHi, f,
+        rHi, fHi, tHi, f
+      ];
+    }
+  }
+
+  // Sprinkle scale-passing notes to avoid “robotic” arps
+  function addMelodicEmbellishments(pattern, scalePcs, mode) {
+    const embellished = [];
+    for (let i = 0; i < pattern.length; i++) {
+      const note = pattern[i];
+      // 60–75% keep chord tone, the rest use neighbor scale tone
+      if (Math.random() < 0.7 || i === 0) {
+        embellished.push(note);
+      } else {
+        const pc = note % 12;
+        const octave = Math.floor(note / 12);
+        // find nearest scale tone ±1 or ±2 scale degrees
+        const idx = scalePcs.indexOf(pc);
+        if (idx === -1) {
+          embellished.push(note);
+          continue;
+        }
+        const delta = Math.random() < 0.5 ? 1 : -1;
+        let newIdx = idx + delta;
+        if (newIdx < 0) newIdx += scalePcs.length;
+        if (newIdx >= scalePcs.length) newIdx -= scalePcs.length;
+        let newPc = scalePcs[newIdx];
+        let newMidi = pcToMidi(newPc, octave);
+        // keep it near previous note’s register
+        while (Math.abs(newMidi - note) > 5) {
+          if (newMidi > note) newMidi -= 12;
+          else newMidi += 12;
+        }
+        embellished.push(newMidi);
+      }
+    }
+    return embellished;
+  }
+
+  // Section-specific progression palettes
+  function baseProgressionForSection(sectionType, mode) {
+    // degree numbers in scale (1–7)
+    if (mode === "minor") {
+      switch (sectionType) {
+        case "intro":     return [1, 6, 3, 7];      // i–VI–III–VII
+        case "verse":     return [1, 7, 6, 7];      // i–VII–VI–VII
+        case "prechorus": return [4, 6, 5, 7];      // iv–VI–v–VII
+        case "chorus":    return [1, 6, 3, 7];      // i–VI–III–VII
+        case "bridge":    return [4, 1, 6, 5];      // iv–i–VI–V-like
+        case "outro":     return [1, 6, 3, 1];      // i–VI–III–i
+        default:          return [1, 6, 3, 7];
+      }
+    } else { // major
+      switch (sectionType) {
+        case "intro":     return [1, 5, 6, 4];      // I–V–vi–IV
+        case "verse":     return [1, 6, 4, 5];      // I–vi–IV–V
+        case "prechorus": return [2, 4, 5, 5];      // ii–IV–V–V
+        case "chorus":    return [1, 5, 6, 4];      // I–V–vi–IV
+        case "bridge":    return [6, 4, 1, 5];      // vi–IV–I–V
+        case "outro":     return [1, 4, 1, 5];      // I–IV–I–V
+        default:          return [1, 5, 6, 4];
+      }
+    }
+  }
+
+  function buildChordDegrees(sectionType, mode, bars, progressionMode) {
+    const base = baseProgressionForSection(sectionType, mode);
+    const degrees = [];
+
+    if (progressionMode === "cyclical") {
+      // Repeat 4-chord loop, but allow rotation for subtle variety
+      const rotation = Math.floor(Math.random() * base.length);
+      const rotated = base.map((_, i) => base[(i + rotation) % base.length]);
+      for (let i = 0; i < bars; i++) {
+        degrees.push(rotated[i % rotated.length]);
+      }
+    } else {
+      // Linear journey: start on first chord, then meander through palette
+      let current = base[0];
+      degrees.push(current);
+      for (let i = 1; i < bars; i++) {
+        const candidates = base.filter(d => d !== current);
+        let next = candidates[Math.floor(Math.random() * candidates.length)];
+        // sometimes nudge stepwise (avoid huge jumps)
+        if (Math.random() < 0.4) {
+          if (next > current && next > 1) {
+            next = current + 1;
+          } else if (next < current && next < 7) {
+            next = current - 1;
+          }
+          if (next < 1) next = 1;
+          if (next > 7) next = 7;
+        }
+        current = next;
+        degrees.push(next);
+      }
+    }
+    return degrees;
+  }
+
+  // ---------- MIDI WRITER ----------------------------------------------------
+  function writeVarLen(value) {
+    let buffer = value & 0x7F;
+    const bytes = [];
+    while ((value >>= 7)) {
+      buffer <<= 8;
+      buffer |= ((value & 0x7F) | 0x80);
+    }
+    while (true) {
+      bytes.push(buffer & 0xFF);
+      if (buffer & 0x80) buffer >>= 8;
+      else break;
+    }
+    return bytes;
+  }
+
+  function buildMidiFile(events, bpm) {
+    const TPQ = 480;
+    const header = [
+      0x4d,0x54,0x68,0x64, // MThd
+      0x00,0x00,0x00,0x06,
+      0x00,0x00, // format 0
+      0x00,0x01, // one track
+      (TPQ >> 8) & 0xFF,
+      TPQ & 0xFF
+    ];
+    const track = [];
+    const mpqn = Math.round(60000000 / bpm);
+    const t1 = (mpqn >> 16) & 0xFF;
+    const t2 = (mpqn >> 8) & 0xFF;
+    const t3 = mpqn & 0xFF;
+
+    // tempo meta event
+    track.push(...writeVarLen(0), 0xFF, 0x51, 0x03, t1, t2, t3);
+    track.push(...events);
+    track.push(...writeVarLen(0), 0xFF, 0x2F, 0x00);
+
+    const trackLen = track.length;
+    const trackHeader = [
+      0x4d,0x54,0x72,0x6b, // MTrk
+      (trackLen >> 24) & 0xFF,
+      (trackLen >> 16) & 0xFF,
+      (trackLen >> 8) & 0xFF,
+      trackLen & 0xFF
+    ];
+
+    const allBytes = [...header, ...trackHeader, ...track];
+    return new Uint8Array(allBytes);
+  }
+
+  function buildNoteEvents(midiNotes, bpm) {
+    const TPQ = 480;
+    const eighthTicks = TPQ / 2;
+    const events = [];
+    const velOn = 100;
+    const velOff = 64;
+    for (let i = 0; i < midiNotes.length; i++) {
+      const note = midiNotes[i];
+      events.push(...writeVarLen(0), 0x90, note, velOn);
+      events.push(...writeVarLen(eighthTicks), 0x80, note, velOff);
+    }
+    return events;
+  }
+
+  // ---------- SECTION STACK & MELODY GEN -------------------------------------
+  const keySelect = document.getElementById("keySelect");
+  const modeSelect = document.getElementById("modeSelect");
+  const bpmInput = document.getElementById("bpmInput");
+  const octaveInput = document.getElementById("octaveInput");
+  const stackContainer = document.getElementById("stackContainer");
+  const outputEl = document.getElementById("output");
+  const generateBtn = document.getElementById("generateBtn");
+  const downloadMidiBtn = document.getElementById("downloadMidiBtn");
+  const playBtn = document.getElementById("playBtn");
+  const stopBtn = document.getElementById("stopBtn");
+
+  const sectionAddButtons = document.querySelectorAll(".section-buttons button");
+  let sectionIdCounter = 1;
+  let songSections = []; // {id, type, bars, progressionMode}
+
+  function humanName(type) {
+    switch (type) {
+      case "intro": return "Intro";
+      case "verse": return "Verse";
+      case "prechorus": return "Pre-Chorus";
+      case "chorus": return "Chorus";
+      case "bridge": return "Bridge";
+      case "outro": return "Outro";
+      default: return type;
+    }
+  }
+
+  function createSectionBlock(type) {
+    const id = sectionIdCounter++;
+    const block = document.createElement("div");
+    block.className = "block";
+    block.dataset.id = id;
+
+    const header = document.createElement("div");
+    header.innerHTML = `<div class="block-header">${humanName(type)}</div>
+                        <div class="block-meta">EDM ${type === "chorus" ? "hook" : "support"} section</div>`;
+
+    const barsLabel = document.createElement("label");
+    barsLabel.innerHTML = 'Bars<input type="number" min="1" max="32" value="4" style="width:70px;">';
+
+    const progLabel = document.createElement("label");
+    progLabel.innerHTML =
+      'Progression<br><select>' +
+      '<option value="cyclical">Cyclical 4-chord loop</option>' +
+      '<option value="linear">Linear evolving</option>' +
+      '</select>';
+
+    const removeBtn = document.createElement("button");
+    removeBtn.textContent = "Remove";
+    removeBtn.className = "danger";
+    removeBtn.addEventListener("click", () => {
+      songSections = songSections.filter(s => s.id !== id);
+      block.remove();
+    });
+
+    block.appendChild(header);
+    block.appendChild(barsLabel);
+    block.appendChild(progLabel);
+    block.appendChild(removeBtn);
+    stackContainer.appendChild(block);
+
+    songSections.push({
+      id,
+      type,
+      bars: 4,
+      progressionMode: "cyclical"
+    });
+
+    const barsInput = barsLabel.querySelector("input");
+    barsInput.addEventListener("input", () => {
+      const val = Math.max(1, Math.min(32, parseInt(barsInput.value || "4", 10)));
+      barsInput.value = val;
+      const sec = songSections.find(s => s.id === id);
+      if (sec) sec.bars = val;
+    });
+
+    const progSelect = progLabel.querySelector("select");
+    progSelect.addEventListener("change", () => {
+      const sec = songSections.find(s => s.id === id);
+      if (sec) sec.progressionMode = progSelect.value;
+    });
+  }
+
+  sectionAddButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const type = btn.getAttribute("data-section-type");
+      createSectionBlock(type);
+    });
+  });
+
+  // store last generated notes for MIDI + playback
+  let lastMidiNotes = [];
+  let lastBpm = 128;
+
+  generateBtn.addEventListener("click", () => {
+    if (!songSections.length) {
+      alert("Add at least one section (Intro, Verse, etc.) before generating.");
+      return;
+    }
+    const keyName = keySelect.value;
+    const mode = modeSelect.value;
+    const bpm = parseInt(bpmInput.value, 10) || 128;
+    const baseOctave = Math.max(1, Math.min(7, parseInt(octaveInput.value, 10) || 4));
+
+    const rootPc = NOTE_TO_PC[keyName];
+    const scale = buildScale(rootPc, mode);
+
+    let lines = [];
+    lines.push(`Key: ${keyName} ${mode}`);
+    lines.push(`BPM: ${bpm}, Base Octave: ${baseOctave}`);
+    lines.push(`Sections in stack: ${songSections.length}`);
+    lines.push("");
+
+    const allNotes = [];
+    let barIndexGlobal = 1;
+
+    for (const sec of songSections) {
+      lines.push(`=== ${humanName(sec.type)} (${sec.bars} bar${sec.bars > 1 ? "s" : ""}, ${sec.progressionMode}) ===`);
+      const degrees = buildChordDegrees(sec.type, mode, sec.bars, sec.progressionMode);
+
+      for (let bar = 0; bar < sec.bars; bar++) {
+        const degree = degrees[bar];
+        const triad = buildTriad(scale, degree, baseOctave + (sec.type === "chorus" ? 1 : 0), 0.4);
+        let pattern = buildBrokenChordPattern(triad, sec.type);
+        pattern = addMelodicEmbellishments(pattern, scale, mode);
+
+        allNotes.push(...pattern);
+        const names = pattern.map(midiToName).join("  ");
+        lines.push(`Bar ${barIndexGlobal} · Deg ${degree}:  ${names}`);
+        barIndexGlobal++;
+      }
+      lines.push("");
+    }
+
+    lines.push(`Total notes: ${allNotes.length}`);
+    lines.push("Ready for playback and MIDI export.");
+
+    outputEl.textContent = lines.join("\n");
+    lastMidiNotes = allNotes;
+    lastBpm = bpm;
+  });
+
+  downloadMidiBtn.addEventListener("click", () => {
+    if (!lastMidiNotes.length) {
+      alert("Generate a song first.");
+      return;
+    }
+    const events = buildNoteEvents(lastMidiNotes, lastBpm);
+    const bytes = buildMidiFile(events, lastBpm);
+    const blob = new Blob([bytes], { type: "audio/midi" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const safeKey = keySelect.value.replace("#", "sharp");
+    a.href = url;
+    a.download = `edm_song_${safeKey}_${modeSelect.value}.mid`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  // ---------- SIMPLE WEB AUDIO PLAYER (SAW LEAD) -----------------------------
+  let audioCtx = null;
+  let playingNodes = [];
+  let isPlaying = false;
+
+  function midiToFreq(m) {
+    return 440 * Math.pow(2, (m - 69) / 12);
+  }
+
+  function stopPlayback() {
+    playingNodes.forEach(node => {
+      try { node.stop(); } catch (e) {}
+    });
+    playingNodes = [];
+    isPlaying = false;
+  }
+
+  playBtn.addEventListener("click", () => {
+    if (!lastMidiNotes.length) {
+      alert("Generate a song first.");
+      return;
+    }
+    if (isPlaying) {
+      stopPlayback();
+    }
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const bpm = lastBpm || 128;
+    const eighthSec = (60 / bpm) / 2;
+    const now = audioCtx.currentTime + 0.05;
+    let t = now;
+
+    playingNodes = [];
+    isPlaying = true;
+
+    const masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.25;
+    masterGain.connect(audioCtx.destination);
+
+    lastMidiNotes.forEach((note, idx) => {
+      const freq = midiToFreq(note);
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = "sawtooth";
+      osc.frequency.value = freq;
+
+      // simple envelope: quick attack, short release
+      const attack = 0.005;
+      const release = 0.08;
+      const noteOn = t;
+      const noteOff = t + eighthSec * 0.95;
+
+      gain.gain.setValueAtTime(0.0, noteOn);
+      gain.gain.linearRampToValueAtTime(1.0, noteOn + attack);
+      gain.gain.linearRampToValueAtTime(0.0, noteOff + release);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start(noteOn);
+      osc.stop(noteOff + release + 0.02);
+
+      playingNodes.push(osc);
+      t += eighthSec;
+    });
+
+    // auto-stop flag when sequence ends (for UI logic)
+    const totalDur = lastMidiNotes.length * eighthSec + 1.0;
+    setTimeout(() => {
+      isPlaying = false;
+    }, totalDur * 1000);
+  });
+
+  stopBtn.addEventListener("click", () => {
+    stopPlayback();
+  });
+</script>
+</body>
+</html>
