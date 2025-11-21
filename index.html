@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>EDM Song Builder · Broken Chord Arp Lab</title>
+  <title>EDM Song Builder · Broken Chord Arp Lab v2</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -164,13 +164,8 @@
       align-items: center;
       font-size: 0.8rem;
     }
-    .block-header {
-      font-weight: 600;
-    }
-    .block-meta {
-      font-size: 0.75rem;
-      color: #c7d2fe;
-    }
+    .block-header { font-weight: 600; }
+    .block-meta { font-size: 0.75rem; color: #c7d2fe; }
     .output {
       margin-top: 14px;
       padding: 14px 16px;
@@ -198,15 +193,16 @@
 </head>
 <body>
 <div class="app">
-  <h1>EDM Song Builder · Broken Chord Arp Lab</h1>
+  <h1>EDM Song Builder · Broken Chord Arp Lab v2</h1>
   <p class="subtitle">
-    Stack sections like blocks (Intro → Verse → Pre → Chorus → Bridge → Outro), generate catchy EDM-style broken chord melodies, and play them right here.
+    Stack sections like blocks (Intro → Verse → Pre → Chorus → Bridge → Outro), generate varied EDM-style melodies,
+    and play them here or export as MIDI.
   </p>
   <div class="chip-row">
-    <div class="chip">EDM pop harmony</div>
-    <div class="chip">Broken chord arpeggiations</div>
-    <div class="chip">Linear & cyclical progressions</div>
-    <div class="chip">MIDI & in-browser synth</div>
+    <div class="chip">Motif / variation / cadence</div>
+    <div class="chip">Non-chord tones & rests</div>
+    <div class="chip">Section-aware chord functions</div>
+    <div class="chip">MIDI & Web Audio synth</div>
   </div>
 
   <div class="section">
@@ -236,7 +232,7 @@
         <input id="octaveInput" type="number" value="4" min="1" max="7">
       </label>
     </div>
-    <p class="hint">Tip: Minor keys with BPM 124–132 will feel very “TikTok / festival EDM”.</p>
+    <p class="hint">Minor + ~128 BPM still gives you that “TikTok / festival” vibe, but the phrases now move and resolve.</p>
   </div>
 
   <div class="section song-builder">
@@ -249,11 +245,9 @@
       <button class="ghost" data-section-type="bridge">+ Bridge</button>
       <button class="ghost" data-section-type="outro">+ Outro</button>
     </div>
-    <div class="stack" id="stackContainer">
-      <!-- Section blocks will appear here -->
-    </div>
+    <div class="stack" id="stackContainer"></div>
     <p class="hint">
-      The stack flows top → bottom. Start with Intro, then build downwards. You can remove and re-add sections any time.
+      The stack flows top → bottom. You can remove and re-add any section as you shape the song.
     </p>
   </div>
 
@@ -268,22 +262,19 @@
       <button class="secondary" id="stopBtn">⏹ Stop</button>
     </div>
     <p class="hint">
-      Workflow: Build your stack → Generate → Play → If you like it, Download MIDI and drag it into Ableton’s MIDI track.
+      Generate → tweak structure → regenerate. When you like it, download MIDI and drop into Ableton’s piano roll.
     </p>
     <div id="output" class="output"></div>
   </div>
 </div>
 
 <script>
-  // ---------- THEORY PRIMERS --------------------------------------------------
-  const NOTE_TO_PC = {
-    "C":0,"C#":1,"D":2,"D#":3,"E":4,"F":5,
-    "F#":6,"G":7,"G#":8,"A":9,"A#":10,"B":11
-  };
+  // ---------- THEORY BASICS ---------------------------------------------------
+  const NOTE_TO_PC = { "C":0,"C#":1,"D":2,"D#":3,"E":4,"F":5,"F#":6,"G":7,"G#":8,"A":9,"A#":10,"B":11 };
   const PC_TO_NOTE = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 
   function buildScale(rootPc, mode) {
-    // Natural minor / major for EDM base
+    // Natural minor / major
     const MAJOR = [0,2,4,5,7,9,11];
     const MINOR = [0,2,3,5,7,8,10];
     const pattern = mode === "major" ? MAJOR : MINOR;
@@ -291,127 +282,53 @@
   }
 
   function pcToMidi(pc, octave) {
-    return 12 * (octave + 1) + pc; // MIDI: C-1 = 0
+    return 12 * (octave + 1) + pc; // C-1 = 0
   }
 
   function midiToName(m) {
+    if (m === null) return "—";
     const pc = m % 12;
     const octave = Math.floor(m / 12) - 1;
     return PC_TO_NOTE[pc] + octave;
   }
 
-  function buildTriad(scalePcs, degree, baseOctave, inversionBias = 0.3) {
-    // degree: 1–7, triad within scale
+  function buildTriad(scalePcs, degree, baseOctave, inversionBias = 0.35) {
     const idx = (degree - 1) % 7;
     const pcs = [
       scalePcs[idx],
       scalePcs[(idx + 2) % 7],
       scalePcs[(idx + 4) % 7]
     ];
-    // start as closed root-position triad, then optionally invert
     let notes = pcs.map(pc => pcToMidi(pc, baseOctave));
-    // basic ascending voicing by adding octaves as needed
+    // Expand upward so they are ascending-ish
     for (let i = 1; i < notes.length; i++) {
       while (notes[i] <= notes[i-1]) notes[i] += 12;
     }
-    // random inversion for variety
+    // random inversion
     const r = Math.random();
     if (r < inversionBias) {
-      // first inversion: move root up
       notes[0] += 12;
     } else if (r < 2 * inversionBias) {
-      // second inversion: move root & third up
       notes[0] += 12;
       notes[1] += 12;
     }
-    // re-sort to ascending
     notes.sort((a,b) => a - b);
     return notes;
   }
 
-  // Build arp pattern with simple "hook logic": octave jumps + chord tones
-  function buildBrokenChordPattern(triad, sectionType) {
-    const [r, t, f] = triad;
-    const rHi = r + 12;
-    const tHi = t + 12;
-    const fHi = f + 12;
-
-    // Different flavors depending on section (slightly different “DNA”)
-    if (sectionType === "chorus") {
-      // high-energy, more top-heavy pattern
-      return [
-        rHi, fHi, tHi, fHi,
-        rHi, tHi, fHi, tHi
-      ];
-    } else if (sectionType === "prechorus") {
-      // climbing feel
-      return [
-        r, t, f, tHi,
-        f, tHi, rHi, fHi
-      ];
-    } else if (sectionType === "bridge") {
-      // more linear, less jumpy
-      return [
-        r, t, f, t,
-        r, t, f, t
-      ];
-    } else {
-      // default intro / verse / outro
-      return [
-        r, f, tHi, f,
-        rHi, fHi, tHi, f
-      ];
-    }
-  }
-
-  // Sprinkle scale-passing notes to avoid “robotic” arps
-  function addMelodicEmbellishments(pattern, scalePcs, mode) {
-    const embellished = [];
-    for (let i = 0; i < pattern.length; i++) {
-      const note = pattern[i];
-      // 60–75% keep chord tone, the rest use neighbor scale tone
-      if (Math.random() < 0.7 || i === 0) {
-        embellished.push(note);
-      } else {
-        const pc = note % 12;
-        const octave = Math.floor(note / 12);
-        // find nearest scale tone ±1 or ±2 scale degrees
-        const idx = scalePcs.indexOf(pc);
-        if (idx === -1) {
-          embellished.push(note);
-          continue;
-        }
-        const delta = Math.random() < 0.5 ? 1 : -1;
-        let newIdx = idx + delta;
-        if (newIdx < 0) newIdx += scalePcs.length;
-        if (newIdx >= scalePcs.length) newIdx -= scalePcs.length;
-        let newPc = scalePcs[newIdx];
-        let newMidi = pcToMidi(newPc, octave);
-        // keep it near previous note’s register
-        while (Math.abs(newMidi - note) > 5) {
-          if (newMidi > note) newMidi -= 12;
-          else newMidi += 12;
-        }
-        embellished.push(newMidi);
-      }
-    }
-    return embellished;
-  }
-
-  // Section-specific progression palettes
+  // ---------- SECTION-BASED CHORD PALETTES -----------------------------------
   function baseProgressionForSection(sectionType, mode) {
-    // degree numbers in scale (1–7)
     if (mode === "minor") {
       switch (sectionType) {
         case "intro":     return [1, 6, 3, 7];      // i–VI–III–VII
         case "verse":     return [1, 7, 6, 7];      // i–VII–VI–VII
         case "prechorus": return [4, 6, 5, 7];      // iv–VI–v–VII
         case "chorus":    return [1, 6, 3, 7];      // i–VI–III–VII
-        case "bridge":    return [4, 1, 6, 5];      // iv–i–VI–V-like
+        case "bridge":    return [4, 1, 6, 5];      // iv–i–VI–V-ish
         case "outro":     return [1, 6, 3, 1];      // i–VI–III–i
         default:          return [1, 6, 3, 7];
       }
-    } else { // major
+    } else {
       switch (sectionType) {
         case "intro":     return [1, 5, 6, 4];      // I–V–vi–IV
         case "verse":     return [1, 6, 4, 5];      // I–vi–IV–V
@@ -429,37 +346,143 @@
     const degrees = [];
 
     if (progressionMode === "cyclical") {
-      // Repeat 4-chord loop, but allow rotation for subtle variety
       const rotation = Math.floor(Math.random() * base.length);
       const rotated = base.map((_, i) => base[(i + rotation) % base.length]);
       for (let i = 0; i < bars; i++) {
         degrees.push(rotated[i % rotated.length]);
       }
+      // ensure cadence: last chord tends to tonic or dominant
+      if (bars > 1) {
+        const lastIdx = bars - 1;
+        if (mode === "minor") {
+          degrees[lastIdx] = Math.random() < 0.5 ? 1 : 5;
+        } else {
+          degrees[lastIdx] = Math.random() < 0.5 ? 1 : 5;
+        }
+      }
     } else {
-      // Linear journey: start on first chord, then meander through palette
+      // Linear “journey” – gently wanders but stays pop-ish
       let current = base[0];
       degrees.push(current);
       for (let i = 1; i < bars; i++) {
-        const candidates = base.filter(d => d !== current);
+        const palette = [...new Set([...base, current])];
+        let candidates = palette.filter(d => d !== current);
         let next = candidates[Math.floor(Math.random() * candidates.length)];
-        // sometimes nudge stepwise (avoid huge jumps)
-        if (Math.random() < 0.4) {
-          if (next > current && next > 1) {
-            next = current + 1;
-          } else if (next < current && next < 7) {
-            next = current - 1;
-          }
-          if (next < 1) next = 1;
-          if (next > 7) next = 7;
+        // attempt stepwise move sometimes
+        if (Math.random() < 0.5) {
+          if (next > current) next = current + 1;
+          else if (next < current) next = current - 1;
         }
+        if (next < 1) next = 1;
+        if (next > 7) next = 7;
         current = next;
         degrees.push(next);
+      }
+      // cadence on last bar
+      const lastIdx = bars - 1;
+      if (mode === "minor") {
+        degrees[lastIdx] = Math.random() < 0.7 ? 1 : 5;
+      } else {
+        degrees[lastIdx] = Math.random() < 0.7 ? 1 : 5;
       }
     }
     return degrees;
   }
 
-  // ---------- MIDI WRITER ----------------------------------------------------
+  // ---------- MELODIC LOGIC: PHRASES / NCTs / RESTS --------------------------
+  function addMelodicEmbellishments(pattern, scalePcs) {
+    const embellished = [];
+    for (let i = 0; i < pattern.length; i++) {
+      const note = pattern[i];
+      if (note === null) {
+        embellished.push(null);
+        continue;
+      }
+      // mostly keep chord tone, sometimes neighbor scale tone
+      if (Math.random() < 0.65 || i === 0) {
+        embellished.push(note);
+      } else {
+        const pc = note % 12;
+        const octave = Math.floor(note / 12);
+        const idx = scalePcs.indexOf(pc);
+        if (idx === -1) {
+          embellished.push(note);
+          continue;
+        }
+        const delta = Math.random() < 0.5 ? 1 : -1;
+        let newIdx = idx + delta;
+        if (newIdx < 0) newIdx += scalePcs.length;
+        if (newIdx >= scalePcs.length) newIdx -= scalePcs.length;
+        let newPc = scalePcs[newIdx];
+        let newMidi = pcToMidi(newPc, octave);
+        // keep it near the original
+        while (Math.abs(newMidi - note) > 5) {
+          if (newMidi > note) newMidi -= 12;
+          else newMidi += 12;
+        }
+        embellished.push(newMidi);
+      }
+    }
+    return embellished;
+  }
+
+  function buildMelodicPatternForBar(sectionType, triad, scalePcs, barIndexInSection, totalBars) {
+    const [r, t, f] = triad;
+    const rHi = r + 12;
+    const tHi = t + 12;
+    const fHi = f + 12;
+
+    // phrase role within a 4-bar phrase: motif / variation / tension / cadence
+    const phrasePos = totalBars <= 4 ? barIndexInSection : barIndexInSection % 4;
+
+    let basePattern;
+
+    if (phrasePos === 0) {
+      // motif: clear, catchy, mid register
+      basePattern = [
+        r, null, f, tHi,
+        rHi, null, tHi, fHi
+      ];
+    } else if (phrasePos === 1) {
+      // variation: same contour, added density
+      basePattern = [
+        r, f, tHi, f,
+        rHi, tHi, fHi, tHi
+      ];
+    } else if (phrasePos === 2) {
+      // tension: more motion, fewer rests
+      basePattern = [
+        rHi, tHi, fHi, tHi,
+        fHi, tHi, rHi, fHi
+      ];
+    } else { // cadence / resolution
+      basePattern = [
+        r, t, f, tHi,
+        rHi, tHi, f, rHi
+      ];
+    }
+
+    // section flavor: chorus wants more in upper register
+    if (sectionType === "chorus") {
+      basePattern = basePattern.map(n => (n === null ? null : n + 12));
+    } else if (sectionType === "bridge") {
+      // smoother, slightly lower
+      basePattern = basePattern.map(n => (n === null ? null : n - 0));
+    }
+
+    // add non-chord tones
+    let embellished = addMelodicEmbellishments(basePattern, scalePcs);
+
+    // ensure cadence: last note resolves to root of chord (prefer high)
+    const isLastBarOfSection = (barIndexInSection === totalBars - 1);
+    if (isLastBarOfSection) {
+      embellished[embellished.length - 1] = rHi;
+    }
+
+    return embellished;
+  }
+
+  // ---------- MIDI ENCODER ---------------------------------------------------
   function writeVarLen(value) {
     let buffer = value & 0x7F;
     const bytes = [];
@@ -478,10 +501,10 @@
   function buildMidiFile(events, bpm) {
     const TPQ = 480;
     const header = [
-      0x4d,0x54,0x68,0x64, // MThd
+      0x4d,0x54,0x68,0x64,
       0x00,0x00,0x00,0x06,
-      0x00,0x00, // format 0
-      0x00,0x01, // one track
+      0x00,0x00,
+      0x00,0x01,
       (TPQ >> 8) & 0xFF,
       TPQ & 0xFF
     ];
@@ -490,40 +513,46 @@
     const t1 = (mpqn >> 16) & 0xFF;
     const t2 = (mpqn >> 8) & 0xFF;
     const t3 = mpqn & 0xFF;
-
-    // tempo meta event
+    // tempo
     track.push(...writeVarLen(0), 0xFF, 0x51, 0x03, t1, t2, t3);
     track.push(...events);
     track.push(...writeVarLen(0), 0xFF, 0x2F, 0x00);
-
     const trackLen = track.length;
     const trackHeader = [
-      0x4d,0x54,0x72,0x6b, // MTrk
+      0x4d,0x54,0x72,0x6b,
       (trackLen >> 24) & 0xFF,
       (trackLen >> 16) & 0xFF,
       (trackLen >> 8) & 0xFF,
       trackLen & 0xFF
     ];
-
-    const allBytes = [...header, ...trackHeader, ...track];
-    return new Uint8Array(allBytes);
+    return new Uint8Array([...header, ...trackHeader, ...track]);
   }
 
-  function buildNoteEvents(midiNotes, bpm) {
+  function buildNoteEvents(midiSteps, bpm) {
     const TPQ = 480;
     const eighthTicks = TPQ / 2;
     const events = [];
     const velOn = 100;
     const velOff = 64;
-    for (let i = 0; i < midiNotes.length; i++) {
-      const note = midiNotes[i];
-      events.push(...writeVarLen(0), 0x90, note, velOn);
-      events.push(...writeVarLen(eighthTicks), 0x80, note, velOff);
+
+    let pendingDelta = 0;
+
+    for (let i = 0; i < midiSteps.length; i++) {
+      const note = midiSteps[i];
+      if (note === null) {
+        pendingDelta += eighthTicks;
+      } else {
+        // Note ON after any accumulated time
+        events.push(...writeVarLen(pendingDelta), 0x90, note, velOn);
+        // Note OFF after 1 eighth
+        events.push(...writeVarLen(eighthTicks), 0x80, note, velOff);
+        pendingDelta = 0;
+      }
     }
     return events;
   }
 
-  // ---------- SECTION STACK & MELODY GEN -------------------------------------
+  // ---------- SECTION STACK / UI ---------------------------------------------
   const keySelect = document.getElementById("keySelect");
   const modeSelect = document.getElementById("modeSelect");
   const bpmInput = document.getElementById("bpmInput");
@@ -534,8 +563,8 @@
   const downloadMidiBtn = document.getElementById("downloadMidiBtn");
   const playBtn = document.getElementById("playBtn");
   const stopBtn = document.getElementById("stopBtn");
-
   const sectionAddButtons = document.querySelectorAll(".section-buttons button");
+
   let sectionIdCounter = 1;
   let songSections = []; // {id, type, bars, progressionMode}
 
@@ -559,7 +588,12 @@
 
     const header = document.createElement("div");
     header.innerHTML = `<div class="block-header">${humanName(type)}</div>
-                        <div class="block-meta">EDM ${type === "chorus" ? "hook" : "support"} section</div>`;
+                        <div class="block-meta">
+                          ${type === "chorus" ? "Hook / drop focus" :
+                            type === "prechorus" ? "Builds tension into chorus" :
+                            type === "bridge" ? "Contrast / reset" :
+                            "Support / framing section"}
+                        </div>`;
 
     const barsLabel = document.createElement("label");
     barsLabel.innerHTML = 'Bars<input type="number" min="1" max="32" value="4" style="width:70px;">';
@@ -609,12 +643,10 @@
 
   sectionAddButtons.forEach(btn => {
     btn.addEventListener("click", () => {
-      const type = btn.getAttribute("data-section-type");
-      createSectionBlock(type);
+      createSectionBlock(btn.getAttribute("data-section-type"));
     });
   });
 
-  // store last generated notes for MIDI + playback
   let lastMidiNotes = [];
   let lastBpm = 128;
 
@@ -631,10 +663,10 @@
     const rootPc = NOTE_TO_PC[keyName];
     const scale = buildScale(rootPc, mode);
 
-    let lines = [];
+    const lines = [];
     lines.push(`Key: ${keyName} ${mode}`);
     lines.push(`BPM: ${bpm}, Base Octave: ${baseOctave}`);
-    lines.push(`Sections in stack: ${songSections.length}`);
+    lines.push(`Sections: ${songSections.length}`);
     lines.push("");
 
     const allNotes = [];
@@ -646,10 +678,13 @@
 
       for (let bar = 0; bar < sec.bars; bar++) {
         const degree = degrees[bar];
-        const triad = buildTriad(scale, degree, baseOctave + (sec.type === "chorus" ? 1 : 0), 0.4);
-        let pattern = buildBrokenChordPattern(triad, sec.type);
-        pattern = addMelodicEmbellishments(pattern, scale, mode);
-
+        const triad = buildTriad(
+          scale,
+          degree,
+          baseOctave + (sec.type === "chorus" ? 1 : 0),
+          0.4
+        );
+        let pattern = buildMelodicPatternForBar(sec.type, triad, scale, bar, sec.bars);
         allNotes.push(...pattern);
         const names = pattern.map(midiToName).join("  ");
         lines.push(`Bar ${barIndexGlobal} · Deg ${degree}:  ${names}`);
@@ -658,10 +693,10 @@
       lines.push("");
     }
 
-    lines.push(`Total notes: ${allNotes.length}`);
+    lines.push(`Total steps (8th grid): ${allNotes.length}`);
     lines.push("Ready for playback and MIDI export.");
-
     outputEl.textContent = lines.join("\n");
+
     lastMidiNotes = allNotes;
     lastBpm = bpm;
   });
@@ -672,8 +707,8 @@
       return;
     }
     const events = buildNoteEvents(lastMidiNotes, lastBpm);
-    const bytes = buildMidiFile(events, lastBpm);
-    const blob = new Blob([bytes], { type: "audio/midi" });
+    const midiBytes = buildMidiFile(events, lastBpm);
+    const blob = new Blob([midiBytes], { type: "audio/midi" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     const safeKey = keySelect.value.replace("#", "sharp");
@@ -685,7 +720,7 @@
     URL.revokeObjectURL(url);
   });
 
-  // ---------- SIMPLE WEB AUDIO PLAYER (SAW LEAD) -----------------------------
+  // ---------- SIMPLE WEB AUDIO PLAYER ----------------------------------------
   let audioCtx = null;
   let playingNodes = [];
   let isPlaying = false;
@@ -707,9 +742,7 @@
       alert("Generate a song first.");
       return;
     }
-    if (isPlaying) {
-      stopPlayback();
-    }
+    if (isPlaying) stopPlayback();
     if (!audioCtx) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
@@ -722,42 +755,38 @@
     isPlaying = true;
 
     const masterGain = audioCtx.createGain();
-    masterGain.gain.value = 0.25;
+    masterGain.gain.value = 0.23;
     masterGain.connect(audioCtx.destination);
 
-    lastMidiNotes.forEach((note, idx) => {
-      const freq = midiToFreq(note);
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
+    lastMidiNotes.forEach(note => {
+      if (note !== null) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
 
-      osc.type = "sawtooth";
-      osc.frequency.value = freq;
+        osc.type = "sawtooth";
+        osc.frequency.value = midiToFreq(note);
 
-      // simple envelope: quick attack, short release
-      const attack = 0.005;
-      const release = 0.08;
-      const noteOn = t;
-      const noteOff = t + eighthSec * 0.95;
+        const attack = 0.006;
+        const release = 0.07;
+        const noteOn = t;
+        const noteOff = t + eighthSec * 0.9;
 
-      gain.gain.setValueAtTime(0.0, noteOn);
-      gain.gain.linearRampToValueAtTime(1.0, noteOn + attack);
-      gain.gain.linearRampToValueAtTime(0.0, noteOff + release);
+        gain.gain.setValueAtTime(0.0, noteOn);
+        gain.gain.linearRampToValueAtTime(1.0, noteOn + attack);
+        gain.gain.linearRampToValueAtTime(0.0, noteOff + release);
 
-      osc.connect(gain);
-      gain.connect(masterGain);
+        osc.connect(gain);
+        gain.connect(masterGain);
 
-      osc.start(noteOn);
-      osc.stop(noteOff + release + 0.02);
-
-      playingNodes.push(osc);
+        osc.start(noteOn);
+        osc.stop(noteOff + release + 0.02);
+        playingNodes.push(osc);
+      }
       t += eighthSec;
     });
 
-    // auto-stop flag when sequence ends (for UI logic)
     const totalDur = lastMidiNotes.length * eighthSec + 1.0;
-    setTimeout(() => {
-      isPlaying = false;
-    }, totalDur * 1000);
+    setTimeout(() => { isPlaying = false; }, totalDur * 1000);
   });
 
   stopBtn.addEventListener("click", () => {
